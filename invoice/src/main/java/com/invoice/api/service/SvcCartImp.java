@@ -6,12 +6,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-
+import com.invoice.api.dto.DtoProduct;
 import com.invoice.api.dto.ApiResponse;
 import com.invoice.api.dto.DtoCustomer;
 import com.invoice.api.entity.Cart;
 import com.invoice.api.repository.RepoCart;
 import com.invoice.configuration.client.CustomerClient;
+import com.invoice.configuration.client.ProductClient;
 import com.invoice.exception.ApiException;
 
 @Service
@@ -104,6 +105,18 @@ public class SvcCartImp implements SvcCart {
 				return false;
 		}catch(Exception e) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "unable to retrieve customer information");
+		}
+	}
+
+	private boolean validateProduct(String gtin){
+		try{
+			ResponseEntity<DtoProduct> response = productCl.getProduct(gtin);
+			if(response.getStatusCode() == HttpStatus.OK)
+				return true;
+			else
+				return false;
+		}catch(Exception e){
+			throw new ApiException(HttpStatus.BAD_REQUEST, "unable to retrieve product information");
 		}
 	}
 
