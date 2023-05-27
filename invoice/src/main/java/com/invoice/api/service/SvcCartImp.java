@@ -23,6 +23,9 @@ public class SvcCartImp implements SvcCart {
 	@Autowired
 	CustomerClient customerCl;
 	
+	@Autowired
+	ProductClient productCl;
+	
 	@Override
 	public List<Cart> getCart(String rfc) {
 		return repo.findByRfcAndStatus(rfc,1);
@@ -32,25 +35,48 @@ public class SvcCartImp implements SvcCart {
 	public ApiResponse addToCart(Cart cart) {
 		if(!validateCustomer(cart.getRfc()))
 			throw new ApiException(HttpStatus.BAD_REQUEST, "customer does not exist");
-			
+
 		/*
 		 * Requerimiento 3
-		 * Validar que el GTIN exista. Si existe, asignar el stock del producto a la variable product_stock 
+		 * Validar que el GTIN exista. Si existe, asignar el stock del producto a la variable product_stock
 		 */
-		Integer product_stock = 0; // cambiar el valor de cero por el stock del producto recuperado de la API Product 
-		
+		Integer product_stock = getCuantoProducto(cart.getGtin()); // cambiar el valor de cero por el stock del producto recuperado de la API Product
+
 		if(cart.getQuantity() > product_stock) {
 			throw new ApiException(HttpStatus.BAD_REQUEST, "invalid quantity");
 		}
-		
+
 		/*
 		 * Requerimiento 4
 		 * Validar si el producto ya había sido agregado al carrito para solo actualizar su cantidad
 		 */
-		
-		cart.setStatus(1);
-		repo.save(cart);
+
+		 Cart car = (Cart) repo.findCartbygtinAndRfc(cart.getGtin(), cart.getRfc());
+		 if(car!=null){
+			 if(car.getQuantity() + cart.getQuantity() > product_stock) {
+				 throw new ApiException(HttpStatus.BAD_REQUEST, "invalid quantity");
+			 }else{
+				 product_stock=cart.getQuantity() + car.getQuantity();
+				 car.setQuantity(product_stock);
+				 repo.updateCartQuantity(car.getQuantity(),car.getGtin(),car.getRfc());
+				 return new ApiResponse("quantity updated");
+			 }
+		 }else{
+			 cart.setStatus(1);
+			 repo.save(cart);
+		 }
 		return new ApiResponse("item added");
+	}
+	
+	/**
+	* Metodo auxiliar para saber cuanto hay de un producto
+	*/
+	private Integer getCuantoProducto(String gtin){
+		if(validateProduct(gtin)){
+			DtoProduct dtoProduct = productCl.getProduct(gtin).getBody();
+			return dtoProduct.getStock();
+		}else
+			throw new ApiException(HttpStatus.BAD_REQUEST, "product doesn't exist");
 	}
 
 	@Override
